@@ -1,11 +1,15 @@
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.Style;
 import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Text;
+import com.itextpdf.layout.properties.TextAlignment;
 import commands.*;
 
 import java.io.*;
 import java.util.List;
+import java.util.Optional;
 
 public class PDFCreator {
 
@@ -15,16 +19,20 @@ public class PDFCreator {
         Document document = new Document(pdf);
         document.add(new Paragraph());
         BufferedReader bufferedReader = new BufferedReader(new FileReader(inputFile));
-        List<Command> commands = bufferedReader.lines().map(PDFCreator::createCommand).toList();
+        CommandParser commandParser = new CommandParser();
+        List<Command> commands = bufferedReader.lines().map(commandParser::createCommand).filter(Optional::isPresent).map(Optional::get).toList();
         Paragraph paragraph = new Paragraph();
-
         for (Command command : commands) {
-            Paragraph newParagraph = command.getBlockElement(paragraph);
+            Paragraph newParagraph = command.getBlockElement(paragraph, document);
+            newParagraph.setTextAlignment(TextAlignment.JUSTIFIED);
             if (newParagraph != paragraph) {
+                if (paragraph.isEmpty()) continue;
+                newParagraph.add(" NEW ");
                 document.add(paragraph);
                 paragraph = newParagraph;
             }
         }
+
 
         document.add(paragraph);
         document.flush();
@@ -50,23 +58,5 @@ public class PDFCreator {
         return file;
     }
 
-    public static Command createCommand(String line) {
-        if (line.startsWith(".")) {
-            String[] command = line.substring(1).split(" ");
-            CommandType type = CommandType.valueOf(command[0].toUpperCase());
-            return switch (type) {
-                case INDENT -> new IndentCommand(Integer.parseInt(command[1]));
-                case PARAGRAPH -> new ParagraphCommand();
-                case BOLD -> new BoldCommand();
-                case FILL -> new FillCommand();
-                case ITALICS -> new ItalicCommand();
-                case NOFILL -> new NoFillCommand();
-                case REGULAR -> new RegularCommand();
-                case LARGE -> new LargeCommand();
-                case NORMAL -> new NormalCommand();
-            };
-        } else {
-            return new TextCommand(line);
-        }
-    }
+
 }
